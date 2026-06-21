@@ -1,9 +1,9 @@
 {
-  "name": "my-cli-tool",
+  "name": "my-cli-tool-himanshu-v1",
   "version": "0.0.1",
   "main": "index.ts",
   "bin": {
-    "my-cli-tool": "./index.ts"
+    "my-cli-tool-himanshu-v1": "./index.ts"
   },
   "author": "",
   "license": "ISC",

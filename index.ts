@@ -6,7 +6,7 @@ import { runWakeup } from "./tui/wakeup.ts";
 const program = new Command();
 
 program
-  .name("my-cli-tool")
+  .name("my-cli-tool-himanshu-v1")
   .description("Claude Cli test Program")
   .version("0.0.1");
 
