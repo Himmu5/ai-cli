@@ -1,57 +1,77 @@
-import { z } from "zod";
 import chalk from "chalk";
 import { confirm, isCancel, text } from "@clack/prompts";
-import { ToolLoopAgent, stepCountIs, tool } from "ai";
+import { ToolLoopAgent, stepCountIs } from "ai";
 import { getAgentModel } from "../../ai/ai.config.ts";
 import { ActionTracker } from "../agent/action-tracker.ts";
 import { ToolExecutor } from "../agent/tool-executor.ts";
 import { createAgentTools } from "../agent/agent-tools.ts";
-import { defaultAgentConfig } from "../agent/config.ts";
+import { defaultAgentConfig } from "../agent/types.ts";
 import { runApprovalFlow } from "../agent/approval.ts";
 import { renderTerminalMarkdown } from "../../tui/terminal-md.ts";
+import { generatePlan } from "./planner";
+import { printPlan, selectSteps } from "./selection";
+import type { PlanStep } from "./types";
+import { createWebTools } from "./web-tools.ts";
 
 
-export function createAskTools(executor: ToolExecutor) {
-    return {
-        read_file: tool({
-            description: "Read a file in the codebase",
-            inputSchema: z.object({
-                path: z.string(),
-            }),
-            execute: async ({ path }) => executor.readFile(path),
-        }),
-        search_files: tool({
-            description: "Search for files in the codebase",
-            inputSchema: z.object({
-                root: z.string().default("."),
-                glob: z.string().default("**/*"),
-                query: z.string().optional(),
-            }),
-            execute: async ({ root, glob, query }) =>
-                executor.searchFiles(root, glob, query),
-        }),
-        list_skills: tool({
-            description: "List all available agent skills",
-            inputSchema: z.object({}),
-            execute: async () => executor.listSkills(),
-        }),
-        read_skill: tool({
-            description: "Read a skill file by path",
-            inputSchema: z.object({
-                path: z.string(),
-            }),
-            execute: async ({ path }) => executor.readSkill(path),
-        }),
-    }
+function stepPrompt(goal: string, step: PlanStep): string {
+  return [`Goal: ${goal}`, `Step: ${step.title}`, step.description].join('\n');
 }
 
-export async function runAskMode(){
-    console.log(chalk.bold("\n 💬 Ask Mode \n")); 
-    const questions = await text({ message: "What do you want to ask?" })    
-    const config = defaultAgentConfig()
-    config.tools.allowFileCreation = true
-    config.tools.allowFileModification = false;
-    config.tools.allowFolderCreation = false;
-    config.tools.allowShellExecution = false;
 
+export async function runPlanMode(): Promise<void> {
+  console.log(chalk.bold("\n🧭 Plan Mode\n"));
+
+  const goal = await text({ message: "What is your goal?" });
+  if (isCancel(goal) || !goal.trim()) return;
+
+  const plan = await generatePlan(goal);
+
+  printPlan(plan);
+
+  const selected = await selectSteps(plan);
+  if (selected.length === 0) return;
+
+  const proceed = await confirm({
+    message: `Execute ${selected.length} step(s)`,
+    initialValue: true,
+  });
+
+  const config = defaultAgentConfig();
+  const tracker = new ActionTracker();
+  const executor = new ToolExecutor(tracker, config);
+
+
+  const tools = {
+    ...createAgentTools(executor),
+    ...createWebTools(tracker)
+  };
+
+  for (const step of selected) {
+    console.log(chalk.bold(`\n🔧 ${step.title}\n`));
+
+    const agent = new ToolLoopAgent({
+      model:getAgentModel(),
+      stopWhen:stepCountIs(30),
+      tools
+    });
+
+    const r = await agent.generate({prompt:stepPrompt(plan.goal , step)})
+
+    if(r.text) return console.log(renderTerminalMarkdown(r.text))
+
+  }
+
+  const ok = await runApprovalFlow(tracker);
+
+  if(!ok) return executor.clearStaging();
+
+   const { errors } = executor.applyApprovedFromTracker();
+  if (errors.length) {
+    console.log(chalk.red('\nSome operations reported errors:\n'));
+    for (const e of errors) console.log(chalk.red(`  • ${e}`));
+  } else {
+    console.log(chalk.green('\n✓ Applied.\n'));
+  }
+  executor.clearStaging();
 }

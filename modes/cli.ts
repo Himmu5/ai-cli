@@ -1,6 +1,8 @@
 import { isCancel, select } from "@clack/prompts";
 import chalk from "chalk";
 import { runAgentMode } from "./agent/orchestrator.ts";
+import { runAskMode } from "./ask/orchestrator.ts";
+import { runPlanMode } from "./plan/orchestrator.ts";
 
 export async function runCliMode(): Promise<void> {
   const mode = await select({
@@ -19,7 +21,12 @@ export async function runCliMode(): Promise<void> {
     return;
   }
 
-  if (mode === "plan" || mode === "ask") {
-    console.log(chalk.yellow("Mode is not implemented yet..."));
+  if ( mode === "ask") {
+    await runAskMode()
+    return;
+  }
+  if(mode == "plan"){
+    await runPlanMode();
+    return;
   }
 }

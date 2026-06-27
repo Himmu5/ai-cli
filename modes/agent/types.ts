@@ -53,3 +53,23 @@ const MUTATION_TYPES = new Set<ActionType>([
 export function isMutationType(type: ActionType): boolean {
   return MUTATION_TYPES.has(type);
 }
+
+export const defaultAgentConfig = (): AgentConfig => ({
+  codebasePath: process.cwd(),
+  maxFileSizeToRead: 1024 * 1024 ,
+  excludePatterns: [
+    'node_modules',
+    '.git',
+    'dist',
+    'build',
+    '.next',
+    '*.log',
+    '.env*',
+  ],
+  tools: {
+    allowShellExecution: true,
+    allowFileModification: true,
+    allowFileCreation: true,
+    allowFolderCreation: true,
+  },
+});

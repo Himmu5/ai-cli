@@ -1,7 +1,7 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import type { LanguageModel } from "ai";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 
-export function getAgentModel(): LanguageModel {
+export function getAgentModel(): LanguageModelV3 {
   const apiKey = process.env.OPEN_ROUTER_KEY;
   if (!apiKey) {
     throw new Error("OPEN_ROUTER_KEY environment variable is required");
