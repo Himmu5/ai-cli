@@ -1,16 +1,17 @@
-import {
-  isMutationType,
-  type ActionLog,
-  type ActionLogInput,
-  type ActionStatus,
-} from "./types.ts";
+import type { ActionLog, ActionStatus } from "./types";
+import { isMutationType } from "./types";
 
 export class ActionTracker {
   private actions: ActionLog[] = [];
 
-  log(entry: ActionLogInput): ActionLog {
+  log(
+    entry: Omit<ActionLog, "id" | "timestamp"> & {
+      id?: string;
+      timestamp?: Date;
+    },
+  ): ActionLog {
     const action: ActionLog = {
-      id: entry.id ?? crypto.randomUUID(),
+      id: entry.id ?? `action_${this.actions.length}`,
       timestamp: entry.timestamp ?? new Date(),
       type: entry.type,
       path: entry.path,
@@ -22,25 +23,20 @@ export class ActionTracker {
     return action;
   }
 
-  getPendingMutation(): ActionLog[] {
+  getActions(): readonly ActionLog[] {
+    return this.actions;
+  }
+
+  getPendingMutations(): ActionLog[] {
     return this.actions.filter(
       (a) => isMutationType(a.type) && a.status === "pending",
     );
   }
 
-  updateStatus(
-    id: string,
-    status: ActionStatus,
-    userApproved = false,
-  ): ActionLog | undefined {
-    const action = this.actions.find((a) => a.id === id);
-    if (!action) return undefined;
-    action.status = status;
-    action.userApproved = userApproved;
-    return action;
-  }
-
-  getActions(): readonly ActionLog[] {
-    return this.actions;
+  updateStatus(id: string, status: ActionStatus, userApproved?: boolean): void {
+    const a = this.actions.find((x) => x.id === id);
+    if (!a) return;
+    a.status = status;
+    if (userApproved !== undefined) a.userApproved = userApproved;
   }
 }

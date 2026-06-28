@@ -65,7 +65,7 @@ function groupPending(pending: ActionLog[]): ReviewGroup[] {
 export async function runApprovalFlow(
   tracker: ActionTracker,
 ): Promise<boolean> {
-  const pending = tracker.getPendingMutation();
+  const pending = tracker.getPendingMutations();
 
   if (pending.length === 0) {
     console.log(

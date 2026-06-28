@@ -1,7 +1,8 @@
 import { select, isCancel } from "@clack/prompts";
 import chalk from "chalk";
 import figlet from "figlet";
-import { runCliMode } from "../modes/cli.ts";
+import { runCliMode } from "../modes/cli.ts"; 
+import { runTelegramMode } from "../modes/telegram/index.ts";
 
 const BANNER_FONT = "ANSI Shadow";
 const SHADOW = chalk.hex("#5b4e9d");
@@ -48,6 +49,6 @@ export async function runWakeup(): Promise<void> {
   } else if (mode === "exit") {
     console.log(chalk.dim("Exit command running..."));
   } else {
-    console.log(chalk.dim("Telegram command running..."));
+    await runTelegramMode()
   }
 }
