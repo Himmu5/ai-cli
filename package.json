@@ -1,6 +1,6 @@
 {
   "name": "my-cli-tool-himanshu-v1",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "index.ts",
   "bin": {
     "my-cli-tool-himanshu-v1": "./index.ts"
