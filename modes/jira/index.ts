@@ -112,8 +112,7 @@ async function jiraMenu(config: ReturnType<typeof getJiraConfig>): Promise<boole
   if (choice === "create") await runCreateTicket(config);
   else if (choice === "edit") await runEditTicket(config);
   else if (choice === "browse") await browseIssues(config);
-  else if (choice === "jql") await searchByJql(config);
-  else if (choice === "key") await openByKey(config);
+  else if (choice === "jql") await searchByJql(config); 
 
   return true;
 }
