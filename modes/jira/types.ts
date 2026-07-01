@@ -5,11 +5,30 @@ export interface JiraIssueSummary {
   priority: string;
 }
 
+export interface JiraUser {
+  accountId: string;
+  displayName: string;
+  emailAddress?: string;
+}
+
 export interface JiraIssueDetail extends JiraIssueSummary {
   description: string;
   issueType: string;
   labels: string[];
+  assignee?: JiraUser;
   url: string;
+}
+
+export interface JiraBoard {
+  id: number;
+  name: string;
+  type: string;
+}
+
+export interface JiraBoardIssuesResult {
+  board: JiraBoard;
+  issues: JiraIssueSummary[];
+  total: number;
 }
 
 export interface JiraSearchResult {

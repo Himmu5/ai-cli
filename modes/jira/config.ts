@@ -4,6 +4,7 @@ export interface JiraConfig {
   apiToken: string;
   defaultJql: string;
   projectKey?: string;
+  boardId?: number;
 }
 
 export function getJiraConfig(): JiraConfig {
@@ -22,11 +23,17 @@ export function getJiraConfig(): JiraConfig {
   }
 
   const project = process.env.JIRA_PROJECT_KEY?.trim();
+  const boardRaw = process.env.JIRA_BOARD_ID?.trim();
+  const boardId = boardRaw ? Number(boardRaw) : undefined;
+  if (boardRaw && (!boardId || Number.isNaN(boardId))) {
+    throw new Error("JIRA_BOARD_ID must be a numeric board ID");
+  }
+
   const defaultJql =
     process.env.JIRA_DEFAULT_JQL?.trim() ||
     (project
       ? `project = ${project} AND assignee = currentUser() AND status != Done ORDER BY updated DESC`
       : "assignee = currentUser() AND status != Done ORDER BY updated DESC");
 
-  return { baseUrl, email, apiToken, defaultJql, projectKey: project || undefined };
+  return { baseUrl, email, apiToken, defaultJql, projectKey: project || undefined, boardId };
 }

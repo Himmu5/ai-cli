@@ -2,11 +2,14 @@ import type { JiraConfig } from "./config.ts";
 import { adfToText, textToAdf } from "./adf.ts";
 import type {
   CreatedIssue,
+  JiraBoard,
+  JiraBoardIssuesResult,
   JiraIssueDetail,
   JiraIssueSummary,
   JiraIssueType,
   JiraProject,
   JiraSearchResult,
+  JiraUser,
   TicketDraft,
   TicketUpdate,
 } from "./types.ts";
@@ -19,6 +22,7 @@ type JiraFieldValue = {
   priority?: { name?: string };
   issuetype?: { name?: string };
   labels?: string[];
+  assignee?: { accountId?: string; displayName?: string; emailAddress?: string } | null;
 };
 
 type JiraApiIssue = {
@@ -64,6 +68,15 @@ function toSummary(issue: JiraApiIssue): JiraIssueSummary {
   };
 }
 
+function toUser(assignee: JiraFieldValue["assignee"]): JiraUser | undefined {
+  if (!assignee?.accountId) return undefined;
+  return {
+    accountId: assignee.accountId,
+    displayName: assignee.displayName ?? assignee.emailAddress ?? assignee.accountId,
+    emailAddress: assignee.emailAddress,
+  };
+}
+
 function toDetail(config: JiraConfig, issue: JiraApiIssue): JiraIssueDetail {
   const summary = toSummary(issue);
   return {
@@ -71,16 +84,28 @@ function toDetail(config: JiraConfig, issue: JiraApiIssue): JiraIssueDetail {
     description: adfToText(issue.fields.description).trim() || "(no description)",
     issueType: issue.fields.issuetype?.name ?? "Task",
     labels: issue.fields.labels ?? [],
+    assignee: toUser(issue.fields.assignee),
     url: `${config.baseUrl}/browse/${issue.key}`,
   };
 }
 
+export async function getCurrentUser(config: JiraConfig): Promise<JiraUser> {
+  const me = await jiraFetch<{
+    accountId?: string;
+    displayName?: string;
+    emailAddress?: string;
+  }>(config, "/rest/api/3/myself");
+  if (!me.accountId) throw new Error("Could not resolve your Jira account ID");
+  return {
+    accountId: me.accountId,
+    displayName: me.displayName ?? me.emailAddress ?? config.email,
+    emailAddress: me.emailAddress,
+  };
+}
+
 export async function verifyJiraConnection(config: JiraConfig): Promise<string> {
-  const me = await jiraFetch<{ displayName?: string; emailAddress?: string }>(
-    config,
-    "/rest/api/3/myself",
-  );
-  return me.displayName ?? me.emailAddress ?? config.email;
+  const me = await getCurrentUser(config);
+  return me.displayName;
 }
 
 export async function searchIssues(
@@ -113,7 +138,7 @@ export async function getIssue(
 ): Promise<JiraIssueDetail> {
   const issue = await jiraFetch<JiraApiIssue>(
     config,
-    `/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=summary,description,status,priority,issuetype,labels`,
+    `/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=summary,description,status,priority,issuetype,labels,assignee`,
   );
   return toDetail(config, issue);
 }
@@ -136,6 +161,7 @@ export function formatIssueContext(issue: JiraIssueDetail): string {
     `Type: ${issue.issueType}`,
     `Status: ${issue.status}`,
     `Priority: ${issue.priority}`,
+    `Assignee: ${issue.assignee?.displayName ?? "Unassigned"}`,
     `URL: ${issue.url}`,
   ];
   if (issue.labels.length) lines.push(`Labels: ${issue.labels.join(", ")}`);
@@ -206,4 +232,97 @@ export async function updateIssue(
     method: "PUT",
     body: JSON.stringify({ fields }),
   });
+}
+
+export async function searchAssignableUsers(
+  config: JiraConfig,
+  issueKey: string,
+  query = "",
+  maxResults = 25,
+): Promise<JiraUser[]> {
+  const params = new URLSearchParams({
+    issueKey,
+    maxResults: String(maxResults),
+  });
+  if (query.trim()) params.set("query", query.trim());
+
+  const users = await jiraFetch<
+    { accountId?: string; displayName?: string; emailAddress?: string }[]
+  >(config, `/rest/api/3/user/assignable/search?${params}`);
+
+  return (users ?? [])
+    .filter((u): u is { accountId: string; displayName?: string; emailAddress?: string } =>
+      Boolean(u.accountId),
+    )
+    .map((u) => ({
+      accountId: u.accountId,
+      displayName: u.displayName ?? u.emailAddress ?? u.accountId,
+      emailAddress: u.emailAddress,
+    }));
+}
+
+export async function assignIssue(
+  config: JiraConfig,
+  issueKey: string,
+  accountId: string | null,
+): Promise<void> {
+  await jiraFetch(config, `/rest/api/3/issue/${encodeURIComponent(issueKey)}/assignee`, {
+    method: "PUT",
+    body: JSON.stringify({ accountId }),
+  });
+}
+
+export async function listBoards(
+  config: JiraConfig,
+  projectKey?: string,
+): Promise<JiraBoard[]> {
+  const params = new URLSearchParams({ maxResults: "50" });
+  if (projectKey) params.set("projectKeyOrId", projectKey);
+
+  const data = await jiraFetch<{
+    values?: { id: number; name: string; type: string }[];
+  }>(config, `/rest/agile/1.0/board?${params}`);
+
+  return (data.values ?? []).map((b) => ({
+    id: b.id,
+    name: b.name,
+    type: b.type,
+  }));
+}
+
+export async function getBoard(config: JiraConfig, boardId: number): Promise<JiraBoard> {
+  const board = await jiraFetch<{ id: number; name: string; type: string }>(
+    config,
+    `/rest/agile/1.0/board/${boardId}`,
+  );
+  return { id: board.id, name: board.name, type: board.type };
+}
+
+export async function getAllBoardIssues(
+  config: JiraConfig,
+  boardId: number,
+): Promise<JiraBoardIssuesResult> {
+  const board = await getBoard(config, boardId);
+  const pageSize = 100;
+  const issues: JiraIssueSummary[] = [];
+  let startAt = 0;
+  let total = 0;
+
+  do {
+    const params = new URLSearchParams({
+      startAt: String(startAt),
+      maxResults: String(pageSize),
+      fields: "summary,status,priority",
+    });
+    const data = await jiraFetch<{
+      issues?: JiraApiIssue[];
+      total?: number;
+    }>(config, `/rest/agile/1.0/board/${boardId}/issue?${params}`);
+
+    total = data.total ?? issues.length;
+    issues.push(...(data.issues ?? []).map(toSummary));
+    startAt += data.issues?.length ?? 0;
+  } while (startAt < total);
+
+  return { board, issues, total };
 }
