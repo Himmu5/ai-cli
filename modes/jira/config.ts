@@ -33,7 +33,7 @@ export function getJiraConfig(): JiraConfig {
     process.env.JIRA_DEFAULT_JQL?.trim() ||
     (project
       ? `project = ${project} AND assignee = currentUser() AND status != Done ORDER BY updated DESC`
-      : "assignee = currentUser() AND status != Done ORDER BY updated DESC");
+      : "AND status != Done ORDER BY updated DESC");
 
   return { baseUrl, email, apiToken, defaultJql, projectKey: project || undefined, boardId };
 }

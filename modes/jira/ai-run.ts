@@ -14,6 +14,7 @@ import { printPlan, selectSteps } from "../plan/selection.ts";
 import { createWebTools } from "../plan/web-tools.ts";
 import type { JiraConfig } from "./config.ts";
 import { addComment, formatIssueContext } from "./client.ts";
+import { createJiraTools } from "./jira-tools.ts";
 import type { JiraIssueDetail } from "./types.ts";
 
 function readOnlyConfig() {
@@ -113,10 +114,12 @@ export async function runAgentOnIssue(
   const agentConfig = defaultAgentConfig();
   const tracker = new ActionTracker();
   const executor = new ToolExecutor(tracker, agentConfig);
-  const tools = createAgentTools(executor);
+  const tools = { ...createAgentTools(executor), ...createJiraTools(config) };
 
   const goal = [
     "Implement the following Jira issue in the codebase.",
+    "Use jira_search_issues or jira_get_board_tickets to browse related tickets when needed.",
+    "Use jira_assign_issue to assign or reassign tickets when appropriate.",
     extraGoal?.trim() ? `Additional instructions: ${extraGoal.trim()}` : "",
   ]
     .filter(Boolean)
@@ -128,6 +131,7 @@ export async function runAgentOnIssue(
     instructions: [
       `Workspace root: ${agentConfig.codebasePath}`,
       "All file changes are staged until user approval.",
+      "Jira browse and assign actions run immediately via jira_* tools (not staged for approval).",
     ].join("\n"),
     tools,
   });
