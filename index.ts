@@ -6,8 +6,8 @@ import { runWakeup } from "./tui/wakeup.ts";
 const program = new Command();
 
 program
-  .name("my-cli-tool-himanshu-v1")
-  .description("Claude Cli test Program")
+  .name("agentx")
+  .description("AgentX - Your AI-Powered Assistant")
   .version("0.0.1");
 
 program

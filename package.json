@@ -1,9 +1,9 @@
 {
-  "name": "my-cli-tool-himanshu-v1",
+  "name": "agentx",
   "version": "0.0.4",
   "main": "index.ts",
   "bin": {
-    "my-cli-tool-himanshu-v1": "./index.ts"
+    "agentx": "./index.ts"
   },
   "author": "",
   "license": "ISC",

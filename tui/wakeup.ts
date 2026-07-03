@@ -26,9 +26,9 @@ function printBannerWithShadow(ascii: string): void {
 export async function runWakeup(): Promise<void> {
   let ascii: string;
   try {
-    ascii = figlet.textSync("My CLI Tool", { font: BANNER_FONT });
+    ascii = figlet.textSync("AgentX", { font: BANNER_FONT });
   } catch {
-    ascii = figlet.textSync("My CLI Tool", { font: "Standard" });
+    ascii = figlet.textSync("AgentX", { font: "Standard" });
   }
   printBannerWithShadow(ascii);
 
